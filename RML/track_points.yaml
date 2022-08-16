@@ -1,0 +1,69 @@
+prefixes:
+ ex: "http://example.com/"
+ schema: "https://schema.org/"
+ dct: "http://purl.org/dc/terms/"
+ xsd: "http://www.w3.org/2001/XMLSchema#"
+ sosa: "http://www.w3.org/ns/sosa/"
+ tm: "https://w3id.org/transportmode#"
+ rdfs: "http://www.w3.org/2000/01/rdf-schema#"
+ geo: "http://www.opengis.net/ont/geosparql#"
+ tree: "https://w3id.org/tree#"
+ ldes: "https://w3id.org/ldes#"
+ wgs84: "http://www.w3.org/2003/01/geo/wgs84_pos#"
+
+mappings:
+  observation:
+    sources:
+      - [clean.xml~xpath, /gpx/trk/trkseg/trkpt]
+    subject: http://location.example.com/tracks/observation/$(time)
+    predicateobjects: 
+      - [sosa:hasFeatureOfInterest, PERSONURL~iri]
+      - [sosa:resultTime, $(time), xsd:dateTime]
+      - [a, sosa:Observation]
+      - [sosa:hasResult, http://location.example.com/tracks/observation/result/$(time)~iri]
+      - [sosa:observedProperty, http://location.example.com/location~iri]
+      - [sosa:hasSimpleResult, POINT($(@lon) $(@lat)), geo:wktLiteral]
+      - [dct:isVersionOf, VERSIONURL~iri]
+      - [sosa:madeBySensor, SENSORURL~iri]
+  result:
+    sources:
+      - [clean.xml~xpath, /gpx/trk/trkseg/trkpt]
+    subject: http://location.example.com/tracks/observation/result/$(time)
+    predicateobjects: 
+      - [wgs84:latitude, $(@lat)]
+      - [wgs84:longitude, $(@lon)]
+      - [wgs84:elevation, $(ele)]
+      - [a, sosa:Result]
+      - [tm:transportMode, TRANSPORTMODE~iri]
+  location:
+    sources:
+      - [clean.xml~xpath, /gpx]
+    subject: http://location.example.com/location
+    predicateobjects:
+      - [a, sosa:observedProperty]
+      - [rdfs:comment, "The Geographic location observed by a sensor.", en~lang]
+      - [rdfs:label, "Location", en~lang]
+  person:
+    sources:
+      - [clean.xml~xpath, /gpx]
+    subject: PERSONURL # Needs to be an url
+    predicateobjects:
+      - [a, sosa:FeatureOfInterest]
+  sensor:
+    sources:
+      - [clean.xml~xpath, /gpx]
+    subject: SENSORURL # Needs to be an url
+    predicateobjects:
+      - [a, sosa:Sensor]
+      - [sosa:observes, http://location.example.com/location~iri]
+      - [sosa:isHostedBy, DEVICEURL~iri]
+      - predicates: sosa:madeObservation
+        objects:
+          - mapping: observation
+  platform:
+    sources:
+      - [clean.xml~xpath, /gpx]
+    subject: DEVICEURL # Needs to be an url
+    predicateobjects:
+      - [a, sosa:Platform]
+      - [sosa:hosts, SENSORURL~iri]
