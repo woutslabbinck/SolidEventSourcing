@@ -8,7 +8,7 @@ Several key components used to achieve this goal:
 * The **ontology** used to encode the data is the Semantic Sensor Network Ontology ([SSN/SOSA](https://www.w3.org/TR/vocab-ssn/))
   * An example of a location measurement can be found [here](https://github.com/Sindhu-Vasireddy/LocationHistory/blob/main/vocab/examples/location_ssn.ttl)
 * The **Event Source** used as data structure is Linked Data Event Streams ([LDES](https://w3id.org/ldes#))
-  * To be more specific [LDES in LDP](https://woutslabbinck.github.io/LDESinLDP)is actually used. This it allows to use a CRUD model to append to the LDES with the use of the [LDP](http://www.w3.org/ns/ldp#) API
+  * To be more specific [LDES in LDP](https://woutslabbinck.github.io/LDESinLDP) is actually used. This it allows to use a CRUD model to append to the LDES with the use of the [LDP](http://www.w3.org/ns/ldp#) API
 * To **persist the data** a Solid pod is used
   * More specific, the Community Solid Server ([CSS](https://github.com/CommunitySolidServer/CommunitySolidServer)) v5 is used as storage. *No guarantees can be made for other solid servers as those were not tested (yet)*
 
@@ -51,6 +51,14 @@ npx @solid/community-server -c "@css:config/file-no-setup.json" -f './data'
 ````
 
 This command sets up a Solid pod without the set up with a file back-end.
+
+It is also possible to set up a Solid pod with an in memory back-end for rapid prototyping:
+
+```shell
+npx @solid/community-server -c "memory-no-setup.json"
+```
+
+
 
 ### Working with authentication
 
