@@ -6,24 +6,24 @@ Several key components used to achieve this goal:
 
 * The **mapping** of gpx data to RDF is achieved using the RDF Mapping Language ([RML](https://rml.io/specs/rml/))
 * The **ontology** used to encode the data is the Semantic Sensor Network Ontology ([SSN/SOSA](https://www.w3.org/TR/vocab-ssn/))
-* The structure to navigate quickly over all the individual location points in time is Linked Data Event Streams ([LDES](https://w3id.org/ldes#))
-  * Note: a variant, [LDESinLDP](https://woutslabbinck.github.io/LDESinLDP), is actually used as it allows to use a CRUD model to append to the LDES with the use of the [LDP](http://www.w3.org/ns/ldp#) API
-
-
+  * An example of a location measurement can be found [here](https://github.com/Sindhu-Vasireddy/LocationHistory/blob/main/vocab/examples/location_ssn.ttl)
+* The **Event Source** used as data structure is Linked Data Event Streams ([LDES](https://w3id.org/ldes#))
+  * To be more specific [LDES in LDP](https://woutslabbinck.github.io/LDESinLDP)is actually used. This it allows to use a CRUD model to append to the LDES with the use of the [LDP](http://www.w3.org/ns/ldp#) API
 * To **persist the data** a Solid pod is used
   * More specific, the Community Solid Server ([CSS](https://github.com/CommunitySolidServer/CommunitySolidServer)) v5 is used as storage. *No guarantees can be made for other solid servers as those were not tested (yet)*
 
 ## Quick start
 
-To save your gpx data to your solid pod, a script was created. In this flow, we assume the Solid pod is local hosted at `http://localhost:3000/`.
+To save your gpx data to your solid pod, a pipeline was created that is executable with `script.py`. 
+In this flow, we assume the Solid pod is local hosted at `http://localhost:3000/`.
 
-Before we run this script, some dependencies have to be installed first. This can be done using the following command:
+Before running the script, some dependencies have to be installed first. This can be done using the following command:
 
 ```shell
 sh ./install.sh
 ```
 
-Next, we take our input gpx file (`example_run.gpx`) and store it to our pod as an LDES in LDP. 
+Next, we take our input gpx file (`example_run.gpx`) and store it to our Solid pod as an LDES in LDP. 
 
 ```shell
 ./script.py gpx -i example_run.gpx -l http://localhost:3000/lil/ -V http://example.org/location -u https://data.knows.idlab.ugent.be/person/woslabbi/#me -d http://device.be -ss http://sensor.be -t tm:Walking
