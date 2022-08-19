@@ -3,10 +3,13 @@
 # install deps for cleaning
 cd clean
 npm i
-cd ..
 
 # install deps for EventSource and build versionawareldesinldp
-cd EventSource
+cd ../EventSource
+npm i
+
+# install deps for CSS
+cd ../CSS
 npm i
 
 # download rmlmapper
