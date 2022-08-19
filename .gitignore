@@ -1,6 +1,5 @@
 node_modules/
 data/
-package.json
 package-lock.json
 # these might contain credentials
 config.json
