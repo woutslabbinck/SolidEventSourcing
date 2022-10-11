@@ -19,85 +19,101 @@
 
 import {readFileSync} from "fs";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic"
-import {turtleStringToStore, LDESinLDPConfig} from "@treecg/versionawareldesinldp"
-import {Resource} from "./src/EventSourceUtil";
+import {turtleStringToStore, LDESinLDPConfig, storeToString, extractTimestampFromLiteral} from "@treecg/versionawareldesinldp"
+import {getTimeStamp, Resource} from "./src/EventSourceUtil";
 import {naiveAlgorithm} from "./src/algorithms/Naive";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
+import { Literal, Store } from "n3";
 const loglevel ="info"
 const logger = new Logger("EventSource", loglevel)
 
 async function run() {
-    const resources: Resource[] = []
     const fileName = process.argv[2]
     const lilURL = process.argv[3]
     const versionIdentifier = process.argv[4]
     const amount = parseInt(process.argv[5], 10)
     const credentialsFileName = process.argv[6]
     const treePath = process.argv[7]
+    let bucketSize = parseInt(process.argv[8], 10);
+    if (isNaN(bucketSize)) {
+        // bucket size was not set, so defaulting back to 100
+        logger.info(`No valid bucket size defined. Defaulting to a 100 UUIDs per bucket.`);
+        bucketSize = 100;
+    }
+    // defined in bytes, so ~1000000 would result in 1MB of max
+    // resource size
+    let targetResourceSize = parseInt(process.argv[9], 10);
+    if (isNaN(targetResourceSize) || targetResourceSize < 0) {
+        // default behaviour is achieved by setting the target
+        // size to 0 (smallest possible size per resource)
+        logger.info(`No valid targetResourceSize defined. Defaulting to a single resource per UUID.`);
+        targetResourceSize = 0;
+    }
 
     // Retrieve data points and put them into resources
     // Note this is currently hard coded -> this should actually be done with code that can read a container of long vs short chats
     // const file = readFileSync('../data/output/rml_output.ttl', 'utf-8')
     const file = readFileSync(fileName, 'utf-8')
     const store = await turtleStringToStore(file)
-    const time_subjects: any[] = []
 
-    store.getSubjects(process.argv[7], null, null).forEach(subject => {
-        time_subjects.push(subject)
+    // extract every resource based on the subject, where
+    // the subject has the predicate treePath
+    const sourceResources = store.getSubjects(
+        treePath, null, null
+    ).map(subject => {
+        return store.getQuads(subject, null, null, null) as Resource
     });
-
-    for (const subject of time_subjects) {
-        // add observation to resource
-        let quads = store.getQuads(subject, null, null, null);
-
-        // add featureOfInterest to resource
-        const feats = store.getQuads(subject, 'http://www.w3.org/ns/sosa/hasFeatureOfInterest', null, null);
-        feats.forEach((interst) => {
-            quads = quads.concat(
-                store.getQuads(interst.object, null, null, null)
-            );
-        });
-
-        // add result to resource
-        const results = store.getQuads(subject, 'http://www.w3.org/ns/sosa/hasResult', null, null);
-        results.forEach((res) => {
-            quads = quads.concat(
-                store.getQuads(res.object, null, null, null)
-            );
-        });
-
-        // add location to resource
-        const location = store.getQuads(subject, 'http://www.w3.org/ns/sosa/observedProperty', null, null);
-        location.forEach((loc) => {
-            quads = quads.concat(
-                store.getQuads(loc.object, null, null, null)
-            );
-        });
-
-        // add sensor to resource
-        const sensor = store.getQuads(subject, 'http://www.w3.org/ns/sosa/madeBySensor', null, null);
-        sensor.forEach((sens) => {
-            // we dont want show all the observations the sensor made in every resource, only the one that matters
-            quads.push(store.getQuads(sens.object, 'http://www.w3.org/ns/sosa/madeObservation', subject, null)[0]);
-            // take all quads and filter out all madeBySensor quads
-            const all_sens = store.getQuads(sens.object, null, null, null);
-            const diff = all_sens.filter(x => x.predicate.value !== 'http://www.w3.org/ns/sosa/madeObservation');
-            quads = quads.concat(diff);
-
-            // add platform to resource
-            const platform = store.getQuads(sens.object, 'http://www.w3.org/ns/sosa/isHostedBy', null, null);
-            platform.forEach((plat) => {
-                quads = quads.concat(
-                    store.getQuads(plat.object, null, null, null)
-                );
-            });
-        });
-
-        resources.push(quads)
+    // as these values have a timestamp defined using the treePath, sorting can
+    // be applied on this data
+    const getTime = (resource: Resource) : number => {
+        // as the shape of a resource can vary, this
+        // approach is flexible
+        return extractTimestampFromLiteral(
+            new Store(resource).getObjects(
+                // at this time, all quads in the resource
+                // should use the same subject, so
+                // subject of the first quad suffices
+                resource[0].subject, treePath, null
+            )[0] as Literal
+        );
+    }
+    sourceResources.sort((first, second) => {
+        return getTime(first) - getTime(second);        
+    });
+    // it's possible for any of resource's object values to be an
+    // object further defined here, if that is the case they get
+    // added to this resource
+    for (const [i, quads] of sourceResources.entries()) {
+        for (const quad of quads) {
+            // all quads with subjects equal to its object representation
+            // gets added to this resource entry, so the original subjects'
+            // data is completely present inside this single resource
+            // this approach already works recursively, as push adds new elements
+            // to the end, making them appear as subjects in further
+            // iterations
+            sourceResources[i].push(...store.getQuads(quad.object, null, null, null));
+        }
+    }
+    if (sourceResources.length === 0) {
+        logger.info(`No valid source data found. Exiting...`);
+        return;
+    }
+    // grouping resources from sourceResources together based on size of a single resource and the target resource
+    // size
+    // assume every sourceResource entry is of the same length (on average) to calculate the number of resources
+    // that are to be grouped together
+    const resourceGroupCount = 1 + Math.floor(targetResourceSize / storeToString(new Store(sourceResources[0])).length);
+    // the samples in a single group are automatically correctly ordered, as they are
+    // sorted in the sourceResources collection above
+    const resources = Array.from(Array(Math.floor(sourceResources.length / resourceGroupCount) + 1), () => new Array());
+    for (const [i, resource] of sourceResources.entries()) {
+        resources[Math.floor(i / resourceGroupCount)].push(...resource);
+    }
+    if (resources[resources.length - 1].length === 0) {
+        // drop the last one if empty (can happen in some scenarios)
+        resources.length -= 1;
     }
 
-
-    const bucketSize = 100
     let amountResources: number = amount
     // if input is not a number use the entire collection
     if (isNaN(amount)) {
@@ -109,11 +125,11 @@ async function run() {
         treePath: treePath,
     }
 
-
     logger.info(`Data file used: ${fileName}`)
     logger.info(`LDES in Solid URL: ${lilURL}`)
     logger.info(`Version Identifier: ${versionIdentifier}`)
     logger.info(`Timestamp path: ${treePath}`)
+    logger.info(`Resources per UUID: ${resourceGroupCount}`)
     let session: Session;
     if (credentialsFileName !== "None") {
         const credentials = JSON.parse(readFileSync(process.argv[6], 'utf-8'));

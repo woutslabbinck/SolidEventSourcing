@@ -25,7 +25,7 @@ export function calculateBucket(resource: Resource, metadata: LDESMetadata): str
     const resourceTs = getTimeStamp(resource, metadata.timestampPath)
 
     let timestampJustSmaller = 0
-    let correspondingUrl
+    let correspondingUrl = "none";
     for (const relation of relations) {
         const relationTs: number = new Date(relation.value).getTime()
         if (relationTs <= resourceTs && timestampJustSmaller < relationTs) {
@@ -33,10 +33,7 @@ export function calculateBucket(resource: Resource, metadata: LDESMetadata): str
             correspondingUrl = relation.node
         }
     }
-    if (!correspondingUrl) {
-        correspondingUrl = "none"
-    }
-    return correspondingUrl
+    return correspondingUrl;
 }
 
 /**
