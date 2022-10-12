@@ -44,6 +44,8 @@ gpx_parser.add_argument('-l', '--LDESinSolidURL',
                         help='The URL of the LDES in Solid (which is an ldp:Container thus should end with an "/")\nThe output will be put in this container', required=False)
 gpx_parser.add_argument('-y', '--yarrrmlpath',
                         help='Path to the yarrrml file (default: RML/track_points.yaml)', required=False, default='RML/track_points.yaml')
+gpx_parser.add_argument('-b', '--bucketSize', help='The amount of resources per bucket', default='100')
+gpx_parser.add_argument('-s', '--resourceSize', help='The size of a created LDP resource', default='0')
 
 con_parser = subparsers.add_parser('container')
 
@@ -149,7 +151,7 @@ if args['subcommand'] == 'gpx':
         # Transforming Timestamped Linked Data location points to time-based versioned LDES (in LDP)
         ldestime = time.perf_counter_ns()
         subprocess.run(["npx", "ts-node", "EventSource/index.ts", "location.ttl",
-                       args['LDESinSolidURL'], args['versionId'], args['amount'], str(args['authenticated']), args['timestamppath']])
+                       args['LDESinSolidURL'], args['versionId'], args['amount'], str(args['authenticated']), args['timestamppath'], args['bucketSize'], args['resourceSize']])
         print(
             f'LDES took: {round((time.perf_counter_ns() - ldestime)/1000000)}ms')
 
