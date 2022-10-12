@@ -23,7 +23,7 @@ import {turtleStringToStore, LDESinLDPConfig, storeToString, extractTimestampFro
 import {getTimeStamp, Resource} from "./src/EventSourceUtil";
 import {naiveAlgorithm} from "./src/algorithms/Naive";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
-import { Literal, Store } from "n3";
+import { Literal, Quad_Subject, Store } from "n3";
 const loglevel ="info"
 const logger = new Logger("EventSource", loglevel)
 
@@ -58,11 +58,13 @@ async function run() {
 
     // extract every resource based on the subject, where
     // the subject has the predicate treePath
-    const sourceResources = store.getSubjects(
+    let mainSubjects : Quad_Subject[] | Set<string> = store.getSubjects(
         treePath, null, null
-    ).map(subject => {
+    );
+    const sourceResources = mainSubjects.map(subject => {
         return store.getQuads(subject, null, null, null) as Resource
     });
+    mainSubjects = new Set(mainSubjects.map(subj => subj.id));
     // as these values have a timestamp defined using the treePath, sorting can
     // be applied on this data
     const getTime = (resource: Resource) : number => {
@@ -100,7 +102,14 @@ async function run() {
             // this approach already works recursively, as push adds new elements
             // to the end, making them appear as subjects in further
             // iterations
-            sourceResources[i].push(...store.getQuads(quad.object, null, null, null));
+            // quads having another main resource (that is not the current resource)
+            // as object are getting filtered out as well, as they cannot be further
+            // defined within this single resource
+            sourceResources[i].push(
+                ...store.getQuads(quad.object, null, null, null).filter((obj) => {
+                    return obj.object.id === sourceResources[i][0].subject.id || !((mainSubjects as Set<string>).has(obj.object.id))
+                })
+            );
         }
     }
     if (sourceResources.length === 0) {
