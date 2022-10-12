@@ -45,8 +45,15 @@ export async function naiveAlgorithm(lilURL: string, resources: Resource[], vers
 
     // https://dev.to/typescripttv/measure-execution-times-in-browsers-node-js-js-ts-1kik
     // extra filter step to be unique
-    const observer = new PerformanceObserver(list => list.getEntries().filter(entry => entry.detail === naiveAlgorithm.name)
-        .forEach(entry => logger.info(entry.name + " took " + Math.round(entry.duration) + " ms to complete")));
+    const observer = new PerformanceObserver(list =>
+        list.getEntries().filter(entry =>
+            entry.detail === naiveAlgorithm.name
+        ).forEach(entry =>
+            logger.info(
+                entry.name + " took " + Math.round(entry.duration) + " ms to complete"
+            )
+        )
+    );
     observer.observe({buffered: false, entryTypes: ['measure']});
 
     const markStart = "start"
@@ -56,14 +63,9 @@ export async function naiveAlgorithm(lilURL: string, resources: Resource[], vers
     performance.mark(markStart);
 
     // step 1: init ldes if not initialised yet
-    let comm = new LDPCommunication();
-
-    if (session) {
-        comm = new SolidCommunication(session)
-    }
-    const lil = new LDESinLDP(lilURL, comm)
-
-    await lil.initialise(config)
+    const comm = session ? new SolidCommunication(session) : new LDPCommunication();
+    const lil = new LDESinLDP(lilURL, comm);
+    await lil.initialise(config);
 
     performance.mark(step1);
     // step 2: add all resources to correct bucket
