@@ -84,7 +84,16 @@ async function run() {
     // object further defined here, if that is the case they get
     // added to this resource
     for (const [i, quads] of sourceResources.entries()) {
+        // to avoid issues with data referencing themselves in a circle,
+        // duplicates are filtered out as well
+        // the initial subject (there should only be one still) is added
+        // as an initial to-be-ignored object
+        const existingObjects = new Set<string>(quads[0].subject.id);
         for (const quad of quads) {
+            if (existingObjects.has(quad.object.id)) {
+                continue;
+            }
+            existingObjects.add(quad.object.id);
             // all quads with subjects equal to its object representation
             // gets added to this resource entry, so the original subjects'
             // data is completely present inside this single resource
