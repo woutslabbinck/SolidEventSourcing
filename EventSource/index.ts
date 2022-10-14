@@ -19,12 +19,27 @@
 
 import {readFileSync} from "fs";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic"
-import {turtleStringToStore, LDESinLDPConfig, storeToString, extractTimestampFromLiteral} from "@treecg/versionawareldesinldp"
-import {getTimeStamp, Resource} from "./src/EventSourceUtil";
+import {
+    extractLdesMetadata,
+    extractTimestampFromLiteral,
+    LDES,
+    LDESinLDP,
+    LDESinLDPConfig,
+    LDESMetadata,
+    LDPCommunication,
+    RDF,
+    SolidCommunication,
+    storeToString,
+    TREE,
+    turtleStringToStore
+} from "@treecg/versionawareldesinldp"
+import {Resource} from "./src/EventSourceUtil";
 import {naiveAlgorithm} from "./src/algorithms/Naive";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
-import { Literal, Quad_Subject, Store } from "n3";
-const loglevel ="info"
+import {DataFactory, Literal, Quad, Quad_Subject, Store} from "n3";
+import namedNode = DataFactory.namedNode;
+
+const loglevel = "info"
 const logger = new Logger("EventSource", loglevel)
 
 async function run() {
@@ -50,24 +65,64 @@ async function run() {
         targetResourceSize = 0;
     }
 
+    logger.info(`Data file used: ${fileName}`)
+    logger.info(`LDES in Solid URL: ${lilURL}`)
+    logger.info(`Version Identifier: ${versionIdentifier}`)
+    logger.info(`Timestamp path: ${treePath}`)
+    let session: Session;
+    if (credentialsFileName !== "None") {
+        const credentials = JSON.parse(readFileSync(process.argv[6], 'utf-8'));
+        session = new Session();
+        await session.login({
+            clientId: credentials.clientId,
+            clientSecret: credentials.clientSecret,
+            refreshToken: credentials.refreshToken,
+            oidcIssuer: credentials.issuer,
+        });
+        logger.info(`User logged in: ${session.info.webId}`)
+
+    }
+
+    // Retrieve metadata of lil if it already exists
+    const comm = session ? new SolidCommunication(session) : new LDPCommunication();
+    const lil = new LDESinLDP(lilURL, comm);
+    let metadata: LDESMetadata | undefined
+
+    try {
+        const metadataStore = await lil.readMetadata()
+        const ldes = metadataStore.getSubjects(RDF.type, LDES.EventStream, null)
+        if (ldes.length > 1) {
+            logger.info(`Multiple LDESes detected. ${ldes[0].value} was extracted`)
+        }
+        metadata = extractLdesMetadata(metadataStore, ldes[0].value)
+    } catch (e) {
+        // the LDES in LDP does not exist if this fail -> there is no metadata
+    }
+
     // Retrieve data points and put them into resources
-    // Note this is currently hard coded -> this should actually be done with code that can read a container of long vs short chats
-    // const file = readFileSync('../data/output/rml_output.ttl', 'utf-8')
     const file = readFileSync(fileName, 'utf-8')
     const store = await turtleStringToStore(file)
 
     // extract every resource based on the subject, where
     // the subject has the predicate treePath
-    let mainSubjects : Quad_Subject[] | Set<string> = store.getSubjects(
+    let mainSubjects: Quad_Subject[] | Set<string> = store.getSubjects(
         treePath, null, null
     );
     const sourceResources = mainSubjects.map(subject => {
-        return store.getQuads(subject, null, null, null) as Resource
+        // extract triples based on subject
+        const resource = store.getQuads(subject, null, null, null) as Resource
+        // add tree:member
+        let evenStreamURI = lilURL + '#EventStream'
+        if (metadata) {
+            evenStreamURI = metadata.ldesEventStreamIdentifier
+        }
+        resource.push(new Quad(namedNode(evenStreamURI), namedNode(TREE.member), subject))
+        return resource
     });
     mainSubjects = new Set(mainSubjects.map(subj => subj.id));
     // as these values have a timestamp defined using the treePath, sorting can
     // be applied on this data
-    const getTime = (resource: Resource) : number => {
+    const getTime = (resource: Resource): number => {
         // as the shape of a resource can vary, this
         // approach is flexible
         return extractTimestampFromLiteral(
@@ -80,7 +135,7 @@ async function run() {
         );
     }
     sourceResources.sort((first, second) => {
-        return getTime(first) - getTime(second);        
+        return getTime(first) - getTime(second);
     });
     // it's possible for any of resource's object values to be an
     // object further defined here, if that is the case they get
@@ -143,24 +198,7 @@ async function run() {
         treePath: treePath,
     }
 
-    logger.info(`Data file used: ${fileName}`)
-    logger.info(`LDES in Solid URL: ${lilURL}`)
-    logger.info(`Version Identifier: ${versionIdentifier}`)
-    logger.info(`Timestamp path: ${treePath}`)
     logger.info(`Resources per UUID: ${resourceGroupCount}`)
-    let session: Session;
-    if (credentialsFileName !== "None") {
-        const credentials = JSON.parse(readFileSync(process.argv[6], 'utf-8'));
-        session = new Session();
-        await session.login({
-            clientId: credentials.clientId,
-            clientSecret: credentials.clientSecret,
-            refreshToken: credentials.refreshToken,
-            oidcIssuer: credentials.issuer,
-        });
-        logger.info(`User logged in: ${session.info.webId}`)
-
-    }
     logger.info("Naive algorithm: Execution for " + amountResources + " resources with a bucket size of " + bucketSize);
     await naiveAlgorithm(lilURL, resources.slice(0, amountResources), versionIdentifier, bucketSize, config, session, loglevel);
     // Note: currently removed as otherwise no time will be used. Now it might not close when authenticated
