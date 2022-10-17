@@ -39,7 +39,7 @@ const {quad, namedNode} = DataFactory
  *    * 1000 resources (Resource[])
  *    * version ID
  */
-export async function naiveAlgorithm(lilURL: string, resources: Resource[], versionID: string, bucketSize: number, config: LDESinLDPConfig, session?: Session, loglevel: string = 'info'): Promise<void> {
+export async function naiveAlgorithm(lilURL: string, resources: Resource[], versionID: string, bucketSize: number, config: LDESinLDPConfig, prefixes: any, session?: Session, loglevel: string = 'info'): Promise<void> {
 
     const logger = new Logger(naiveAlgorithm.name, loglevel)
 
@@ -124,7 +124,7 @@ export async function naiveAlgorithm(lilURL: string, resources: Resource[], vers
     }
     delete bucketResources["none"]
     // add resource to each bucket
-    await addResourcesToBuckets(bucketResources, metadata, comm);
+    await addResourcesToBuckets(bucketResources, metadata, comm, prefixes);
 
     performance.mark(step2);
 
@@ -132,7 +132,7 @@ export async function naiveAlgorithm(lilURL: string, resources: Resource[], vers
     // go over each bucket over the LDES that has more than 100 resources
     // and create new buckets such that at the end there are less than 100 per bucket.
     for (const bucketURL of Object.keys(bucketResources)) {
-        await rebalanceContainer(comm, metadata, bucketURL, bucketSize)
+        await rebalanceContainer(comm, metadata, bucketURL, bucketSize, prefixes)
     }
     performance.mark(step3);
 

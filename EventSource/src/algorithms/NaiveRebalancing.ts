@@ -30,7 +30,7 @@ import {performance, PerformanceObserver} from "perf_hooks";
  * @returns {Promise<void>}
  */
 export async function rebalanceContainer(ldpCommunication: Communication, metadata: LDESMetadata, containerURL: string,
-                                         bucketSize: number, loglevel: string = 'info'): Promise<void> {
+                                         bucketSize: number, prefixes: any, loglevel: string = 'info'): Promise<void> {
 
     const logger = new Logger(rebalanceContainer.name, loglevel)
     // https://dev.to/typescripttv/measure-execution-times-in-browsers-node-js-js-ts-1kik
@@ -128,7 +128,7 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
     performance.mark(step2);
 
     // 3c: Copy the resources to the new buckets
-    await addResourcesToBuckets(bucketResources, metadata, ldpCommunication)
+    await addResourcesToBuckets(bucketResources, metadata, ldpCommunication, prefixes)
     performance.mark(step3);
 
     // 3d: Remove the old resources and add relations to the root

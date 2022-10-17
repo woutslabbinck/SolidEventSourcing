@@ -17,7 +17,7 @@
  * Some configuration about the bucket size (assumption, 100)
  */
 
-import {readFileSync} from "fs";
+import {readFileSync, existsSync} from "fs";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic"
 import {
     extractLdesMetadata,
@@ -29,11 +29,10 @@ import {
     LDPCommunication,
     RDF,
     SolidCommunication,
-    storeToString,
     TREE,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp"
-import {Resource} from "./src/EventSourceUtil";
+import {Resource, resourceToOptimisedTurtle} from "./src/EventSourceUtil";
 import {naiveAlgorithm} from "./src/algorithms/Naive";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
 import {DataFactory, Literal, Quad, Quad_Subject, Store} from "n3";
@@ -64,7 +63,10 @@ async function run() {
         logger.info(`No valid targetResourceSize defined. Defaulting to a single resource per UUID.`);
         targetResourceSize = 0;
     }
-
+    const prefixFile = process.argv[10];
+    let prefixes = existsSync(prefixFile) ? JSON.parse(readFileSync(prefixFile, {encoding: "utf-8"})) : {};
+    // adding an extra prefix, so ":EventStream" is valid
+    prefixes[""] = lilURL + "#";
     logger.info(`Data file used: ${fileName}`)
     logger.info(`LDES in Solid URL: ${lilURL}`)
     logger.info(`Version Identifier: ${versionIdentifier}`)
@@ -98,7 +100,6 @@ async function run() {
     } catch (e) {
         // the LDES in LDP does not exist if this fail -> there is no metadata
     }
-
     // Retrieve data points and put them into resources
     const file = readFileSync(fileName, 'utf-8')
     const store = await turtleStringToStore(file)
@@ -140,12 +141,16 @@ async function run() {
     // it's possible for any of resource's object values to be an
     // object further defined here, if that is the case they get
     // added to this resource
-    for (const [i, quads] of sourceResources.entries()) {
+    for (const quads of sourceResources) {
         // to avoid issues with data referencing themselves in a circle,
         // duplicates are filtered out as well
         // the initial subject (there should only be one still) is added
         // as an initial to-be-ignored object
-        const existingObjects = new Set<string>(quads[0].subject.id);
+        // IMPORTANT: first element cannot be added in the constructor of the
+        // set as it expects an iterator (and thus would be a per character
+        // iterator)
+        const existingObjects = new Set<string>();
+        existingObjects.add(quads[0].subject.id);
         for (const quad of quads) {
             if (existingObjects.has(quad.object.id)) {
                 continue;
@@ -160,9 +165,9 @@ async function run() {
             // quads having another main resource (that is not the current resource)
             // as object are getting filtered out as well, as they cannot be further
             // defined within this single resource
-            sourceResources[i].push(
+            quads.push(
                 ...store.getQuads(quad.object, null, null, null).filter((obj) => {
-                    return obj.object.id === sourceResources[i][0].subject.id || !((mainSubjects as Set<string>).has(obj.object.id))
+                    return obj.object.id === quads[0].subject.id || !((mainSubjects as Set<string>).has(obj.object.id))
                 })
             );
         }
@@ -175,7 +180,8 @@ async function run() {
     // size
     // assume every sourceResource entry is of the same length (on average) to calculate the number of resources
     // that are to be grouped together
-    const resourceGroupCount = 1 + Math.floor(targetResourceSize / storeToString(new Store(sourceResources[0])).length);
+    // skipping prefix declaration to get a more correct count estimation (as the size is more correct per single resource)
+    const resourceGroupCount = 1 + Math.floor(targetResourceSize / resourceToOptimisedTurtle(sourceResources[0], prefixes, true).length);
     // the samples in a single group are automatically correctly ordered, as they are
     // sorted in the sourceResources collection above
     const resources = Array.from(Array(Math.floor(sourceResources.length / resourceGroupCount) + 1), () => new Array());
@@ -200,7 +206,7 @@ async function run() {
 
     logger.info(`Resources per UUID: ${resourceGroupCount}`)
     logger.info("Naive algorithm: Execution for " + amountResources + " resources with a bucket size of " + bucketSize);
-    await naiveAlgorithm(lilURL, resources.slice(0, amountResources), versionIdentifier, bucketSize, config, session, loglevel);
+    await naiveAlgorithm(lilURL, resources.slice(0, amountResources), versionIdentifier, bucketSize, config, prefixes, session, loglevel);
     // Note: currently removed as otherwise no time will be used. Now it might not close when authenticated
     // process.exit()
 }
