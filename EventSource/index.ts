@@ -180,8 +180,7 @@ async function run() {
     // size
     // assume every sourceResource entry is of the same length (on average) to calculate the number of resources
     // that are to be grouped together
-    // skipping prefix declaration to get a more correct count estimation (as the size is more correct per single resource)
-    const resourceGroupCount = 1 + Math.floor(targetResourceSize / resourceToOptimisedTurtle(sourceResources[0], prefixes, true).length);
+    const resourceGroupCount = 1 + Math.floor(targetResourceSize / resourceToOptimisedTurtle(sourceResources[0], prefixes).length);
     // the samples in a single group are automatically correctly ordered, as they are
     // sorted in the sourceResources collection above
     const resources = Array.from(Array(Math.floor(sourceResources.length / resourceGroupCount) + 1), () => new Array());
