@@ -1,10 +1,12 @@
 import {
     extractTimestampFromLiteral,
     LDESMetadata,
-    LDPCommunication
+    LDPCommunication,
+    turtleStringToStore
 } from "@treecg/versionawareldesinldp";
 import {Literal, Quad, Quad_Object, Store, Writer, DataFactory, NamedNode} from "n3";
 const { namedNode, literal, defaultGraph, quad } = DataFactory;
+import { existsSync, readFileSync } from "fs";
 
 // The semantics of Resource is the data point itself (!! not to be confused with an ldp:Resource)
 export type Resource = Quad[]
@@ -55,6 +57,26 @@ export function getTimeStamp(resource: Resource, timestampPath: string): number 
     return extractTimestampFromLiteral(resourceStore.getObjects(null, timestampPath, null)[0] as Literal)// Note: expecting real xsd:dateTime
 }
 
+export async function prefixesFromFilepath(path: string, url?: string): Promise<any> {
+    let prefixes = {};
+    if (url) {
+        prefixes[""] = url + "#";
+    }
+    if (existsSync(path)) {
+        const store = await turtleStringToStore(readFileSync(path, "utf-8"));
+        // only the triples using predicate "<http://purl.org/vocab/vann/preferredNamespacePrefix>"
+        // are relevant, as these represent prefix (= object) and URI (= subject)
+        const prefixQuads = store.getQuads(null, namedNode("http://purl.org/vocab/vann/preferredNamespacePrefix"), null, null);
+        for (const prefixQuad of prefixQuads) {
+            if (prefixQuad.object.termType != "Literal" || ! /^"[^"]+"$/.test(prefixQuad.object.id)) {
+                // the object does not represent a string literal, skipping this entry
+                continue;
+            }
+            prefixes[prefixQuad.object.id.substring(1, prefixQuad.object.id.length - 1)] = prefixQuad.subject.id;
+        }
+    }
+    return prefixes;
+}
 
 type ResourceMap = Map<string, Map<string, Quad_Object[]>>;
 

@@ -17,7 +17,7 @@
  * Some configuration about the bucket size (assumption, 100)
  */
 
-import {readFileSync, existsSync} from "fs";
+import {readFileSync} from "fs";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic"
 import {
     extractLdesMetadata,
@@ -32,7 +32,7 @@ import {
     TREE,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp"
-import {Resource, resourceToOptimisedTurtle} from "./src/EventSourceUtil";
+import {prefixesFromFilepath, Resource, resourceToOptimisedTurtle} from "./src/EventSourceUtil";
 import {naiveAlgorithm} from "./src/algorithms/Naive";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
 import {DataFactory, Literal, Quad, Quad_Subject, Store} from "n3";
@@ -64,9 +64,7 @@ async function run() {
         targetResourceSize = 0;
     }
     const prefixFile = process.argv[10];
-    let prefixes = existsSync(prefixFile) ? JSON.parse(readFileSync(prefixFile, {encoding: "utf-8"})) : {};
-    // adding an extra prefix, so ":EventStream" is valid
-    prefixes[""] = lilURL + "#";
+    const prefixes = await prefixesFromFilepath(prefixFile, lilURL);
     logger.info(`Data file used: ${fileName}`)
     logger.info(`LDES in Solid URL: ${lilURL}`)
     logger.info(`Version Identifier: ${versionIdentifier}`)
