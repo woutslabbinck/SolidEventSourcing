@@ -72,7 +72,7 @@ export async function prefixesFromFilepath(path: string, url?: string): Promise<
                 // the object does not represent a string literal, skipping this entry
                 continue;
             }
-            prefixes[prefixQuad.object.id.substring(1, prefixQuad.object.id.length - 1)] = prefixQuad.subject.id;
+            prefixes[prefixQuad.object.value] = prefixQuad.subject.value;
         }
     }
     return prefixes;
