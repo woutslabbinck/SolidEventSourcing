@@ -78,19 +78,19 @@ export async function prefixesFromFilepath(path: string, url?: string): Promise<
     return prefixes;
 }
 
-type ResourceMap = Map<string, Map<string, Quad_Object[]>>;
-
 /**
- * Converts a resource (quad array) to two maps, where every key is a subject ID.
- * The maps are split depending on wether the subject node is a named node or a
- * blank node
- * Note: currently duplicate objects are not checked. As most functions
- *  use this method to optimise the utilized space, it might be beneficial to remove
- *  duplicate objects here as well
- * @param resource
- * @returns {[ResourceMap, ResourceMap]}
+ * Converts a resource (quad array) to an optimised turtle string representation by grouping subjects
+ * together, using prefixes wherever possible and replacing blank nodes with their properties.
+ * Note: blank nodes referenced as objects, but not found as subjects in other quads, are removed
+ *  entirely
+ *
+ * @param resource The resource that gets converted to a string
+ * @param _prefixes An object which members are strings, member name being the short prefix and its
+ *  value a string representing its URI. Example: `{"rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}`
+ * @returns {string}
  */
-export function resourceToMaps(resource: Resource): [ResourceMap, ResourceMap] {
+export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): string {
+    // get a grouped overview of this resource's content
     const named = new Map<string, Map<string, Quad_Object[]>>();
     const blank = new Map<string, Map<string, Quad_Object[]>>();
     addElements:
@@ -118,23 +118,6 @@ export function resourceToMaps(resource: Resource): [ResourceMap, ResourceMap] {
             data.set(quad.subject.id, new Map([[quad.predicate.id, new Array(quad.object)]]));
         }
     }
-    return [named, blank];
-}
-
-/**
- * Converts a resource (quad array) to an optimised turtle string representation by grouping subjects
- * together, using prefixes wherever possible and replacing blank nodes with their properties.
- * Note: blank nodes referenced as objects, but not found as subjects in other quads, are removed
- *  entirely
- *
- * @param resource The resource that gets converted to a string
- * @param _prefixes An object which members are strings, member name being the short prefix and its
- *  value a string representing its URI. Example: `{"rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}`
- * @returns {string}
- */
-export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): string {
-    // get a grouped overview of this resource's content
-    const [named, blank] = resourceToMaps(resource);
     // converting all the entries of the blank map first
     const blankEntries = new Map<string, {predicate: NamedNode, objects: Quad_Object[]}[]>();
     for (const [subject, properties] of blank) {
