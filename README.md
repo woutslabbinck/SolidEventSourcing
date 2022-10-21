@@ -1,5 +1,7 @@
 # Solid Event Sourcing
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7234315.svg)](https://doi.org/10.5281/zenodo.7234315)
+
 The goal of this repository is to help in transforming raw location data to RDF and storing it on a [Solid](https://solidproject.org/TR/protocol) pod.The location data is stored on the pod as an **Event Source**, as this allows other applications to build views based on their needs. 
 
 Several key components used to achieve this goal:
