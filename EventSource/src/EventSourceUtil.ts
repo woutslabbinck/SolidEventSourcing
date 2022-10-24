@@ -2,11 +2,11 @@ import {
     extractTimestampFromLiteral,
     LDESMetadata,
     LDPCommunication,
-    storeToString
+    turtleStringToStore
 } from "@treecg/versionawareldesinldp";
-import {DataFactory, Literal, Quad, Store} from "n3";
-
-const {quad, namedNode} = DataFactory
+import {Literal, Quad, Quad_Object, Store, Writer, DataFactory, NamedNode} from "n3";
+const { namedNode, literal, defaultGraph, quad } = DataFactory;
+import { existsSync, readFileSync } from "fs";
 
 // The semantics of Resource is the data point itself (!! not to be confused with an ldp:Resource)
 export type Resource = Quad[]
@@ -57,6 +57,112 @@ export function getTimeStamp(resource: Resource, timestampPath: string): number 
     return extractTimestampFromLiteral(resourceStore.getObjects(null, timestampPath, null)[0] as Literal)// Note: expecting real xsd:dateTime
 }
 
+export async function prefixesFromFilepath(path: string, url?: string): Promise<any> {
+    let prefixes = {};
+    if (url) {
+        prefixes[""] = url + "#";
+    }
+    if (existsSync(path)) {
+        const store = await turtleStringToStore(readFileSync(path, "utf-8"));
+        // only the triples using predicate "<http://purl.org/vocab/vann/preferredNamespacePrefix>"
+        // are relevant, as these represent prefix (= object) and URI (= subject)
+        const prefixQuads = store.getQuads(null, namedNode("http://purl.org/vocab/vann/preferredNamespacePrefix"), null, null);
+        for (const prefixQuad of prefixQuads) {
+            if (prefixQuad.object.termType != "Literal" || ! /^"[^"]+"$/.test(prefixQuad.object.id)) {
+                // the object does not represent a string literal, skipping this entry
+                continue;
+            }
+            prefixes[prefixQuad.object.value] = prefixQuad.subject.value;
+        }
+    }
+    return prefixes;
+}
+
+/**
+ * Converts a resource (quad array) to an optimised turtle string representation by grouping subjects
+ * together, using prefixes wherever possible and replacing blank nodes with their properties.
+ * Note: blank nodes referenced as objects, but not found as subjects in other quads, are removed
+ *  entirely
+ *
+ * @param resource The resource that gets converted to a string
+ * @param _prefixes An object which members are strings, member name being the short prefix and its
+ *  value a string representing its URI. Example: `{"rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}`
+ * @returns {string}
+ */
+export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): string {
+    // get a grouped overview of this resource's content
+    const named = new Map<string, Map<string, Quad_Object[]>>();
+    const blank = new Map<string, Map<string, Quad_Object[]>>();
+    addElements:
+    for (const quad of resource) {
+        const data = quad.subject.termType == "BlankNode" ? blank : named;
+        if (data.has(quad.subject.id)) {
+            const props = data.get(quad.subject.id)!;
+            if (props.has(quad.predicate.id)) {
+                // check if value is already in array, if it is, dont add it anymore
+                const objs = props.get(quad.predicate.id)!;
+                for (const obj of objs) {
+                    // while it might offer better performance to use a set instead
+                    // of an array, the custom type Quad_Object would not work correctly
+                    // with Set.has(), and thus would require a seperate container storing
+                    // the IDs (which would in turn not be memory efficient)
+                    if (obj.equals(quad.object)) {
+                        continue addElements;
+                    }
+                }
+                objs.push(quad.object);
+            } else {
+                props.set(quad.predicate.id, new Array(quad.object));
+            }
+        } else {
+            data.set(quad.subject.id, new Map([[quad.predicate.id, new Array(quad.object)]]));
+        }
+    }
+    // converting all the entries of the blank map first
+    const blankEntries = new Map<string, {predicate: NamedNode, objects: Quad_Object[]}[]>();
+    for (const [subject, properties] of blank) {
+        blankEntries.set(subject, []);
+        for (const [property, objects] of properties) {
+            blankEntries.get(subject)!.push({
+                predicate: namedNode(property),
+                objects: objects
+            });
+        }
+    }
+    // with the ordered view done, a more compact turtle string can be generated
+    const writer = new Writer({prefixes: _prefixes});
+    // adding all the blank nodes with their properties first
+    for (const [subject, properties] of named) {
+        for (const [predicate, objects] of properties) {
+            for (const object of objects) {
+                if (object.termType != "BlankNode") {
+                    writer.addQuad(
+                        namedNode(subject),
+                        namedNode(predicate),
+                        object                        
+                    );
+                } else {
+                    const blankProperties = blankEntries.get(object.id)!;
+                    for (const blankProp of blankProperties) {
+                        for (const blankObject of blankProp.objects) {
+                            writer.addQuad(
+                                namedNode(subject),
+                                namedNode(predicate),
+                                writer.blank(
+                                    blankProp.predicate,
+                                    blankObject
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let str: string;
+    writer.end((err, result) => str = result);
+    return str;
+}
 
 /**
  * Adds all the resources from each bucket entry of the BucketResources object to the specified container
@@ -68,11 +174,10 @@ export function getTimeStamp(resource: Resource, timestampPath: string): number 
  * @param ldpComm
  * @returns {Promise<void>}
  */
-export async function addResourcesToBuckets(bucketResources: BucketResources, metadata: LDESMetadata, ldpComm: LDPCommunication) {
+export async function addResourcesToBuckets(bucketResources: BucketResources, metadata: LDESMetadata, ldpComm: LDPCommunication, prefixes: any) {
     for (const containerURL of Object.keys(bucketResources)) {
         for (const resource of bucketResources[containerURL]) {
-            const resourceStore = new Store(resource)
-            const response = await ldpComm.post(containerURL, storeToString(resourceStore))
+            const response = await ldpComm.post(containerURL, resourceToOptimisedTurtle(resource, prefixes))
             // console.log(`Resource stored at: ${response.headers.get('location')} | status: ${response.status}`)
             // TODO: handle when status is not 201 (Http Created)
         }
