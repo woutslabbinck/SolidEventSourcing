@@ -21,7 +21,7 @@ import {
     extractLdesMetadata,
     LDES,
     LDESinLDP,
-    LDESinLDPConfig,
+    LDESConfig,
     LDESMetadata,
     LDPCommunication,
     RDF,
@@ -68,10 +68,14 @@ async function run() {
     }
     const prefixFile = process.argv[10];
     const prefixes = await prefixesFromFilepath(prefixFile, lilURL);
+
+    const versionOfPath = process.argv[11];
+
     logger.info(`Data file used: ${fileName}`)
     logger.info(`LDES in Solid URL: ${lilURL}`)
     logger.info(`Version Identifier: ${versionIdentifier}`)
     logger.info(`Timestamp path: ${treePath}`)
+    logger.info(`VersionOf path: ${versionOfPath}`)
     const session = await initSession(credentialsFileName);
     if (session) {
         logger.info(`User logged in: ${session.info.webId}`)
@@ -119,9 +123,10 @@ async function run() {
         amountResources = resources.length
     }
 
-    const config: LDESinLDPConfig = {
+    const config: LDESConfig = {
         LDESinLDPIdentifier: lilURL,
         treePath: treePath,
+        versionOfPath: versionOfPath
     }
 
     logger.info(`Resources per UUID: ${resourceGroupCount}`)

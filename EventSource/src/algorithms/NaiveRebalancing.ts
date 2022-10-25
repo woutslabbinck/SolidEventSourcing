@@ -15,7 +15,7 @@ import {
 import {addResourcesToBuckets, calculateBucket, createBucketUrl, getTimeStamp, Resource} from "../util/EventSource";
 import {convertLdesMetadata, editMetadata} from "../util/Util";
 import {Store} from "n3";
-import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldesinldp/Util";
+import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldes/Util";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
 import {performance, PerformanceObserver} from "perf_hooks";
 
