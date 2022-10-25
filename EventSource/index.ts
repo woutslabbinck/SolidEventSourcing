@@ -28,14 +28,14 @@ import {
     SolidCommunication
 } from "@treecg/versionawareldesinldp"
 import {
+    getTimeStamp,
     initSession,
     prefixesFromFilepath,
     resourceToOptimisedTurtle
 } from "./src/util/EventSource";
 import {
     storeFromFile,
-    extractResourcesFrom,
-    extractTimeFrom,
+    extractResources,
     batchResources
 } from "./src/util/Processing";
 import { naiveAlgorithm } from "./src/algorithms/Naive";
@@ -100,11 +100,11 @@ async function run() {
     const eventStreamURI = metadata ? metadata.ldesEventStreamIdentifier : lilURL + '#EventStream';
     // extract every resource based on the subject, where
     // the subject has the predicate treePath
-    const sourceResources = extractResourcesFrom(store, treePath, eventStreamURI);
+    const sourceResources = extractResources(store, treePath, eventStreamURI);
     // as these values have a timestamp defined using the treePath, sorting can
     // be applied on this data; this is important for correct grouping later
     sourceResources.sort((first, second) => {
-        return extractTimeFrom(first, treePath) - extractTimeFrom(second, treePath);
+        return getTimeStamp(first, treePath) - getTimeStamp(second, treePath);
     });
     if (sourceResources.length === 0) {
         logger.info(`No valid source data found. Exiting...`);

@@ -6,15 +6,17 @@ import { existsSync, readFileSync } from "fs";
 
 /**
  * Returns all the triples as a store from a file at a given filepath
- * 
+ *  note: This method can throw depending on the file(path)
  * @param filepath
- * @returns {Promise<Store | null>}
+ * @returns {Promise<Store>}
  */
-export async function storeFromFile(filepath: string): Promise<Store | null> {
-    if (existsSync(filepath)) {
-        return await turtleStringToStore(readFileSync(filepath, "utf-8"));
+export async function storeFromFile(filepath: string): Promise<Store> {
+    if (!existsSync(filepath)){
+        throw Error("The filepath is invalid.");
     }
-    return null
+    // if the file content is invalid, the method below will throw a
+    // different error
+    return await turtleStringToStore(readFileSync(filepath, "utf-8"));
 }
 
 /**
@@ -26,7 +28,7 @@ export async function storeFromFile(filepath: string): Promise<Store | null> {
  * @param eventStreamURI Complete name of the stream where individual resources gets added to (e.g. http://localhost:3000/#EventStream)
  * @returns {Resource[]}
  */
- export function extractResourcesFrom(
+ export function extractResources(
     store: Store,
     treePath: string,
     eventStreamURI: string
@@ -70,27 +72,6 @@ export async function storeFromFile(filepath: string): Promise<Store | null> {
         }
     }
     return resources;
-}
-
-/**
- * Extracts a single timestamp literal value from the given resource. The treepath is the
- * predicate associated with the timestamp literal.
- * 
- * @param resource Collection of quads where the first subject matches the subject where
- * the timestamp is requested
- * @returns {number} The first occurrence of a timestamp literal where predicate matches
- * the given treepath and the subject matches the very first subject in the quad list
- * (resource)
- */
- export function extractTimeFrom(resource: Resource, treePath: string): number {
-    // as the shape of a resource can vary, a flexible approach using a store is used
-    return extractTimestampFromLiteral(
-        new Store(resource).getObjects(
-            // at this time, all quads in the resource should use the same subject, so
-            // subject of the first quad suffices
-            resource[0].subject, treePath, null
-        )[0] as Literal
-    );
 }
 
 /**
