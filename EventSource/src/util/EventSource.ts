@@ -4,14 +4,45 @@ import {
     LDPCommunication,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp";
-import {Literal, Quad, Quad_Object, Store, Writer, DataFactory, NamedNode} from "n3";
-const { namedNode, literal, defaultGraph, quad } = DataFactory;
-import { existsSync, readFileSync } from "fs";
+import {
+    Literal,
+    Quad,
+    Quad_Object,
+    Store,
+    Writer,
+    DataFactory
+} from "n3";
+import {
+    existsSync,
+    readFileSync
+} from "fs";
+import { Session } from "@rubensworks/solid-client-authn-isomorphic";
+const namedNode = DataFactory.namedNode;
 
 // The semantics of Resource is the data point itself (!! not to be confused with an ldp:Resource)
 export type Resource = Quad[]
 // a dictionary which maps an ldp:containerURL to an array of Resources
 export type BucketResources = {[p: string]: Resource[]}
+
+/**
+ * @param credentialsFile Filepath to a JSON containing credentials to setup a
+ * Solid communication session
+ * @returns {Promise<Session | null>}
+ */
+ export async function initSession(credentialsFilepath: string): Promise<Session | null> {
+    if (existsSync(credentialsFilepath)) {
+        const credentials = JSON.parse(readFileSync(credentialsFilepath, 'utf-8'));
+        const session = new Session();
+        await session.login({
+            clientId: credentials.clientId,
+            clientSecret: credentials.clientSecret,
+            refreshToken: credentials.refreshToken,
+            oidcIssuer: credentials.issuer,
+        });
+        return session;
+    }
+    return null;
+}
 
 /**
  * Calculates to which bucket (i.e. the ldp:Container) the resource should be added.
@@ -81,8 +112,10 @@ export async function prefixesFromFilepath(path: string, url?: string): Promise<
 /**
  * Converts a resource (quad array) to an optimised turtle string representation by grouping subjects
  * together, using prefixes wherever possible and replacing blank nodes with their properties.
- * Note: blank nodes referenced as objects, but not found as subjects in other quads, are removed
- *  entirely
+ * Note: blank nodes referenced to as objects, but not found as subjects in other quads, can cause
+ *  issues
+ * Note: a more processing performant solution might be possible, by creating a store from the resource
+ *  and indexing from there instead of two seperate maps
  *
  * @param resource The resource that gets converted to a string
  * @param _prefixes An object which members are strings, member name being the short prefix and its
@@ -119,39 +152,20 @@ export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): s
         }
     }
     // converting all the entries of the blank map first
-    const blankEntries = new Map<string, {predicate: NamedNode, objects: Quad_Object[]}[]>();
-    for (const [subject, properties] of blank) {
-        blankEntries.set(subject, []);
-        for (const [property, objects] of properties) {
-            blankEntries.get(subject)!.push({
-                predicate: namedNode(property),
-                objects: objects
-            });
-        }
-    }
     // with the ordered view done, a more compact turtle string can be generated
     const writer = new Writer({prefixes: _prefixes});
-    // adding all the blank nodes with their properties first
     for (const [subject, properties] of named) {
         for (const [predicate, objects] of properties) {
             for (const object of objects) {
                 if (object.termType != "BlankNode") {
-                    writer.addQuad(
-                        namedNode(subject),
-                        namedNode(predicate),
-                        object                        
-                    );
+                    writer.addQuad(namedNode(subject), namedNode(predicate), object);
                 } else {
-                    const blankProperties = blankEntries.get(object.id)!;
-                    for (const blankProp of blankProperties) {
-                        for (const blankObject of blankProp.objects) {
+                    const blankProperties = blank.get(object.id)!;
+                    for (const [blankPredicate, blankObjects] of blankProperties) {
+                        for (const blankObject of blankObjects) {
                             writer.addQuad(
-                                namedNode(subject),
-                                namedNode(predicate),
-                                writer.blank(
-                                    blankProp.predicate,
-                                    blankObject
-                                )
+                                namedNode(subject), namedNode(predicate),
+                                writer.blank(namedNode(blankPredicate), blankObject)
                             );
                         }
                     }
@@ -160,7 +174,7 @@ export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): s
         }
     }
     let str: string;
-    writer.end((err, result) => str = result);
+    writer.end((_, result) => str = result);
     return str;
 }
 

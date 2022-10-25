@@ -12,8 +12,8 @@ import {
     LDP, storeToString,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp";
-import {addResourcesToBuckets, calculateBucket, createBucketUrl, getTimeStamp, Resource} from "../EventSourceUtil";
-import {convertLdesMetadata, editMetadata} from "../Util";
+import {addResourcesToBuckets, calculateBucket, createBucketUrl, getTimeStamp, Resource} from "../util/EventSource";
+import {convertLdesMetadata, editMetadata} from "../util/Util";
 import {Store} from "n3";
 import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldesinldp/Util";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";

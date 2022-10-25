@@ -8,7 +8,7 @@
  * Created on 09/06/2022
  *****************************************/
 
-import {addResourcesToBuckets, calculateBucket, getTimeStamp, Resource} from "../EventSourceUtil";
+import {addResourcesToBuckets, calculateBucket, getTimeStamp, Resource} from "../util/EventSource";
 import {
     extractLdesMetadata,
     LDESinLDP,
@@ -23,7 +23,7 @@ import {DataFactory, Store} from "n3";
 import {rebalanceContainer} from "./NaiveRebalancing";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
 import {performance, PerformanceObserver} from 'perf_hooks'
-import {editMetadata} from "../Util";
+import {editMetadata} from "../util/Util";
 const {quad, namedNode} = DataFactory
 
 
