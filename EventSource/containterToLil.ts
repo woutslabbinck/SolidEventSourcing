@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import {Store} from "n3";
 import {
     turtleStringToStore,
-    LDESinLDPConfig,
+    LDESConfig, DCT,
 } from "@treecg/versionawareldesinldp";
 import {naiveAlgorithm} from "./src/algorithms/Naive";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic";
@@ -93,9 +93,10 @@ async function run() {
     const versionIdentifier = args["versionId"];
     const bucketSize = 100;
 
-    const config: LDESinLDPConfig = {
+    const config: LDESConfig = {
         LDESinLDPIdentifier: lilURL,
         treePath: args["treePath"],
+        versionOfPath: DCT.isVersionOf // TODO: needs proper argument
     };
 
     logger.info("Algorithm A execution for " + resources.length + " resources with a bucket size of " + bucketSize);
