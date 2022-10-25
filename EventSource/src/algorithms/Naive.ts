@@ -12,13 +12,13 @@ import {addResourcesToBuckets, calculateBucket, getTimeStamp, Resource} from "..
 import {
     extractLdesMetadata,
     LDESinLDP,
-    LDESinLDPConfig,
+    LDESConfig,
     LDPCommunication,
     SolidCommunication,
     storeToString
 } from "@treecg/versionawareldesinldp";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic"
-import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldesinldp/Util";
+import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldes/Util";
 import {DataFactory, Store} from "n3";
 import {rebalanceContainer} from "./NaiveRebalancing";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
@@ -39,7 +39,7 @@ const {quad, namedNode} = DataFactory
  *    * 1000 resources (Resource[])
  *    * version ID
  */
-export async function naiveAlgorithm(lilURL: string, resources: Resource[], versionID: string, bucketSize: number, config: LDESinLDPConfig, prefixes: any, session?: Session, loglevel: string = 'info'): Promise<void> {
+export async function naiveAlgorithm(lilURL: string, resources: Resource[], versionID: string, bucketSize: number, config: LDESConfig, prefixes: any, session?: Session, loglevel: string = 'info'): Promise<void> {
 
     const logger = new Logger(naiveAlgorithm.name, loglevel)
 
