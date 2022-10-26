@@ -38,7 +38,7 @@ async function run() {
     const rooturl: string = args["rooturl"];
 
     let fet = fetch;
-    let session: Session = undefined;
+    let session: Session | undefined = undefined;
     if (authConfigPath !== "None") {
         const credentials = JSON.parse(fs.readFileSync(authConfigPath, "utf-8"));
         logger.info(`Using authenticated fetch (configfile: ${authConfigPath})`)

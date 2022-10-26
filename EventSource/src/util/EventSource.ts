@@ -16,20 +16,21 @@ import {
     existsSync,
     readFileSync
 } from "fs";
-import { Session } from "@rubensworks/solid-client-authn-isomorphic";
+import {Session} from "@rubensworks/solid-client-authn-isomorphic";
+
 const namedNode = DataFactory.namedNode;
 
 // The semantics of Resource is the data point itself (!! not to be confused with an ldp:Resource)
 export type Resource = Quad[]
 // a dictionary which maps an ldp:containerURL to an array of Resources
-export type BucketResources = {[p: string]: Resource[]}
+export type BucketResources = { [p: string]: Resource[] }
 
 /**
  * @param credentialsFile Filepath to a JSON containing credentials to setup a
  * Solid communication session
- * @returns {Promise<Session | null>}
+ * @returns {Promise<Session | undefined>}
  */
- export async function initSession(credentialsFilepath: string): Promise<Session | null> {
+export async function initSession(credentialsFilepath: string): Promise<Session | undefined> {
     if (existsSync(credentialsFilepath)) {
         const credentials = JSON.parse(readFileSync(credentialsFilepath, 'utf-8'));
         const session = new Session();
@@ -41,7 +42,7 @@ export type BucketResources = {[p: string]: Resource[]}
         });
         return session;
     }
-    return null;
+    return undefined;
 }
 
 /**
@@ -89,7 +90,7 @@ export function getTimeStamp(resource: Resource, timestampPath: string): number 
 }
 
 export async function prefixesFromFilepath(path: string, url?: string): Promise<any> {
-    let prefixes = {};
+    let prefixes: { [key: string]: string } = {};
     if (url) {
         prefixes[""] = url + "#";
     }
@@ -99,7 +100,7 @@ export async function prefixesFromFilepath(path: string, url?: string): Promise<
         // are relevant, as these represent prefix (= object) and URI (= subject)
         const prefixQuads = store.getQuads(null, namedNode("http://purl.org/vocab/vann/preferredNamespacePrefix"), null, null);
         for (const prefixQuad of prefixQuads) {
-            if (prefixQuad.object.termType != "Literal" || ! /^"[^"]+"$/.test(prefixQuad.object.id)) {
+            if (prefixQuad.object.termType != "Literal" || !/^"[^"]+"$/.test(prefixQuad.object.id)) {
                 // the object does not represent a string literal, skipping this entry
                 continue;
             }
@@ -127,30 +128,30 @@ export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): s
     const named = new Map<string, Map<string, Quad_Object[]>>();
     const blank = new Map<string, Map<string, Quad_Object[]>>();
     addElements:
-    for (const quad of resource) {
-        const data = quad.subject.termType == "BlankNode" ? blank : named;
-        if (data.has(quad.subject.id)) {
-            const props = data.get(quad.subject.id)!;
-            if (props.has(quad.predicate.id)) {
-                // check if value is already in array, if it is, dont add it anymore
-                const objs = props.get(quad.predicate.id)!;
-                for (const obj of objs) {
-                    // while it might offer better performance to use a set instead
-                    // of an array, the custom type Quad_Object would not work correctly
-                    // with Set.has(), and thus would require a seperate container storing
-                    // the IDs (which would in turn not be memory efficient)
-                    if (obj.equals(quad.object)) {
-                        continue addElements;
+        for (const quad of resource) {
+            const data = quad.subject.termType == "BlankNode" ? blank : named;
+            if (data.has(quad.subject.id)) {
+                const props = data.get(quad.subject.id)!;
+                if (props.has(quad.predicate.id)) {
+                    // check if value is already in array, if it is, dont add it anymore
+                    const objs = props.get(quad.predicate.id)!;
+                    for (const obj of objs) {
+                        // while it might offer better performance to use a set instead
+                        // of an array, the custom type Quad_Object would not work correctly
+                        // with Set.has(), and thus would require a seperate container storing
+                        // the IDs (which would in turn not be memory efficient)
+                        if (obj.equals(quad.object)) {
+                            continue addElements;
+                        }
                     }
+                    objs.push(quad.object);
+                } else {
+                    props.set(quad.predicate.id, new Array(quad.object));
                 }
-                objs.push(quad.object);
             } else {
-                props.set(quad.predicate.id, new Array(quad.object));
+                data.set(quad.subject.id, new Map([[quad.predicate.id, new Array(quad.object)]]));
             }
-        } else {
-            data.set(quad.subject.id, new Map([[quad.predicate.id, new Array(quad.object)]]));
         }
-    }
     // converting all the entries of the blank map first
     // with the ordered view done, a more compact turtle string can be generated
     const writer = new Writer({prefixes: _prefixes});
@@ -173,7 +174,7 @@ export function resourceToOptimisedTurtle(resource: Resource, _prefixes: any): s
             }
         }
     }
-    let str: string;
+    let str: string = "";
     writer.end((_, result) => str = result);
     return str;
 }
