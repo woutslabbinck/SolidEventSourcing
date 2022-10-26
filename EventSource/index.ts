@@ -25,7 +25,7 @@ import {
     LDESMetadata,
     LDPCommunication,
     RDF,
-    SolidCommunication
+    SolidCommunication, DCT
 } from "@treecg/versionawareldesinldp"
 import {
     getTimeStamp,
@@ -126,7 +126,7 @@ async function run() {
     const config: LDESConfig = {
         LDESinLDPIdentifier: lilURL,
         treePath: treePath,
-        versionOfPath: versionOfPath
+        versionOfPath: versionOfPath ?? DCT.isVersionOf
     }
 
     logger.info(`Resources per UUID: ${resourceGroupCount}`)
