@@ -1,22 +1,12 @@
 import {
     DCT,
-    extractTimestampFromLiteral, ILDESinLDPMetadata,
-    LDESMetadata,
+    extractTimestampFromLiteral,
+    ILDESinLDPMetadata,
     LDPCommunication,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp";
-import {
-    Literal,
-    Quad,
-    Quad_Object,
-    Store,
-    Writer,
-    DataFactory
-} from "n3";
-import {
-    existsSync,
-    readFileSync
-} from "fs";
+import {DataFactory, Literal, Quad, Quad_Object, Store, Writer} from "n3";
+import {existsSync, readFileSync} from "fs";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic";
 
 const namedNode = DataFactory.namedNode;

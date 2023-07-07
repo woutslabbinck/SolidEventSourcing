@@ -6,14 +6,16 @@
  *****************************************/
 
 import {
-    Communication, DCT,
-    extractLdesMetadata, ILDESinLDPMetadata,
-    LDESMetadata,
-    LDP, MetadataParser, storeToString,
+    Communication,
+    DCT,
+    ILDESinLDPMetadata,
+    LDP,
+    MetadataParser,
+    storeToString,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp";
 import {addResourcesToBuckets, calculateBucket, createBucketUrl, getTimeStamp, Resource} from "../util/EventSource";
-import {convertLdesMetadata, editMetadata} from "../util/Util";
+import {editMetadata} from "../util/Util";
 import {Store} from "n3";
 import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldes/Util";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
@@ -109,7 +111,6 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
     }
 
     // convert as the new metadata of the ldes
-    // const updatedMetadata = extractLdesMetadata(metadataStore, metadata.ldesEventStreamIdentifier)
     const updatedMetadata = MetadataParser.extractLDESinLDPMetadata(metadataStore, metadata.eventStreamIdentifier)
 
     // calculate buckets per resources

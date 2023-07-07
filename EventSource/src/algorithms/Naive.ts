@@ -10,12 +10,12 @@
 
 import {addResourcesToBuckets, calculateBucket, getTimeStamp, Resource} from "../util/EventSource";
 import {
-    extractLdesMetadata,
-    LDESinLDP,
     LDESConfig,
+    LDESinLDP,
     LDPCommunication,
+    MetadataParser,
     SolidCommunication,
-    storeToString, MetadataParser
+    storeToString
 } from "@treecg/versionawareldesinldp";
 import {Session} from "@rubensworks/solid-client-authn-isomorphic"
 import {addRelationToNode, createContainer} from "@treecg/versionawareldesinldp/dist/ldes/Util";
@@ -24,6 +24,7 @@ import {rebalanceContainer} from "./NaiveRebalancing";
 import {Logger} from "@treecg/versionawareldesinldp/dist/logging/Logger";
 import {performance, PerformanceObserver} from 'perf_hooks'
 import {editMetadata} from "../util/Util";
+
 const {quad, namedNode} = DataFactory
 
 
