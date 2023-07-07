@@ -6,10 +6,10 @@
  *****************************************/
 
 import {
-    Communication,
-    extractLdesMetadata,
+    Communication, DCT,
+    extractLdesMetadata, ILDESinLDPMetadata,
     LDESMetadata,
-    LDP, storeToString,
+    LDP, MetadataParser, storeToString,
     turtleStringToStore
 } from "@treecg/versionawareldesinldp";
 import {addResourcesToBuckets, calculateBucket, createBucketUrl, getTimeStamp, Resource} from "../util/EventSource";
@@ -29,7 +29,7 @@ import {performance, PerformanceObserver} from "perf_hooks";
  * @param loglevel
  * @returns {Promise<void>}
  */
-export async function rebalanceContainer(ldpCommunication: Communication, metadata: LDESMetadata, containerURL: string,
+export async function rebalanceContainer(ldpCommunication: Communication, metadata: ILDESinLDPMetadata, containerURL: string,
                                          bucketSize: number, prefixes: any, loglevel: string = 'info'): Promise<void> {
 
     const logger = new Logger(rebalanceContainer.name, loglevel)
@@ -47,6 +47,8 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
     const step4 = rebalanceContainer.name + "step4"
     performance.mark(markStart);
 
+    // used to be metadata.timestamppath in old code | especially in lil it is the treePath
+    const timestampPath = metadata.view.relations[0].path ?? DCT.created
     const containerResponse = await ldpCommunication.get(containerURL)
     const containerStore = await turtleStringToStore(await containerResponse.text(), containerURL)
     const amountResources = containerStore.countQuads(containerURL, LDP.contains, null, null)
@@ -71,8 +73,8 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
         resourcesLocationMap.set(resource, resourceURL)
     }
     resources.sort((a, b) => {
-        const timeA = getTimeStamp(a, metadata.timestampPath)
-        const timeB = getTimeStamp(b, metadata.timestampPath)
+        const timeA = getTimeStamp(a, timestampPath)
+        const timeB = getTimeStamp(b, timestampPath)
         // if a > b <=> a -b > 0 <=> a is bigger than b <=> sort a after b
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#description
         return timeA - timeB
@@ -81,7 +83,7 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
 
     // 3a: calculate buckets
     // convert metadata to store again
-    const metadataStore = convertLdesMetadata(metadata)
+    const metadataStore = metadata.getStore()
     const updateToRoot = new Store() // This store is used to patch the root of the LDES in LDP
 
     // Calculate bucketResources
@@ -89,15 +91,15 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
     const amountNewBuckets = Math.floor((amountResources - 1) / bucketSize) // minus one for correct amount
     const indexes = Array.from(Array(amountNewBuckets).keys()).map(value => (value + 1) * bucketSize) // https://stackoverflow.com/a/36953272
     for (const index of indexes) {
-        const timestamp = getTimeStamp(resources[index], metadata.timestampPath)
+        const timestamp = getTimeStamp(resources[index], timestampPath)
         const newURL = createBucketUrl(containerURL, timestamp)
         bucketResources[newURL] = []
         logger.debug(newURL + ' | for timestamp: ' + new Date(timestamp).toISOString())
 
         const relationConfig = {
             date: new Date(timestamp),
-            nodeIdentifier: metadata.views[0].id, // Note: we assume one rootnode
-            treePath: metadata.timestampPath
+            nodeIdentifier: metadata.view.id, // Note: we assume one rootnode
+            treePath: timestampPath
         }
         // add bucket to metadataStore
         addRelationToNode(metadataStore, relationConfig)
@@ -107,7 +109,8 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
     }
 
     // convert as the new metadata of the ldes
-    const updatedMetadata = extractLdesMetadata(metadataStore, metadata.ldesEventStreamIdentifier)
+    // const updatedMetadata = extractLdesMetadata(metadataStore, metadata.ldesEventStreamIdentifier)
+    const updatedMetadata = MetadataParser.extractLDESinLDPMetadata(metadataStore, metadata.eventStreamIdentifier)
 
     // calculate buckets per resources
     for (const resource of resources) {
@@ -147,7 +150,7 @@ export async function rebalanceContainer(ldpCommunication: Communication, metada
 
     // update root
     const insertBody = `INSERT DATA { ${storeToString(updateToRoot)}}`
-    await editMetadata(metadata.views[0].id, ldpCommunication, insertBody) // again assumption that there is only 1 view
+    await editMetadata(metadata.view.id, ldpCommunication, insertBody) // again assumption that there is only 1 view
 
     performance.mark(step4);
 

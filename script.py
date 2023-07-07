@@ -151,7 +151,7 @@ if args['subcommand'] == 'gpx':
         # Transforming Timestamped Linked Data location points to time-based versioned LDES (in LDP)
         ldestime = time.perf_counter_ns()
         subprocess.run(["npx", "ts-node", "EventSource/index.ts", "location.ttl",
-                       args['LDESinSolidURL'], args['versionId'], args['amount'], str(args['authenticated']), args['timestamppath'], args['bucketSize'], args['resourceSize']])
+                       args['LDESinSolidURL'], args['versionId'], args['amount'], str(args['authenticated']), args['timestamppath'], args['bucketSize'], args['resourceSize'],"EventSource/prefixes.ttl"])
         print(
             f'LDES took: {round((time.perf_counter_ns() - ldestime)/1000000)}ms')
 
